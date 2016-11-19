@@ -59,7 +59,7 @@ void ws2812_initRMTChannel(int rmtChannel)
   RMT.conf_ch[rmtChannel].conf0.carrier_en = 0;
   RMT.conf_ch[rmtChannel].conf0.carrier_out_lv = 1;
   RMT.conf_ch[rmtChannel].conf0.mem_pd = 0;
- 
+
   RMT.conf_ch[rmtChannel].conf1.rx_en = 0;
   RMT.conf_ch[rmtChannel].conf1.mem_owner = 0;
   RMT.conf_ch[rmtChannel].conf1.tx_conti_mode = 0;    //loop back mode.
@@ -81,13 +81,16 @@ void ws2812_copy()
   len = (ws2812_len + 1) - ws2812_pos;
   if (len > (MAX_PULSES / 8))
     len = (MAX_PULSES / 8);
-  
+
   for (i = 0; i < len; i++) {
     if (i + ws2812_pos < ws2812_len) {
       bit = ws2812_buffer[i + ws2812_pos];
-      for (j = 0; j < 8; j++, bit <<= 7)
+      for (j = 0; j < 8; j++, bit <<= 1) {
 	RMTMEM.chan[RMTCHANNEL].data[j + i * 8 + offset].val =
 	  ws2812_bits[(bit >> 7) & 0x01].val;
+      }
+      if (i + ws2812_pos == ws2812_len - 1)
+	RMTMEM.chan[RMTCHANNEL].data[7 + i * 8 + offset].duration1 += RESET / DURATION;
     }
     else
       RMTMEM.chan[RMTCHANNEL].data[i * 8 + offset].val = 0;
@@ -96,7 +99,7 @@ void ws2812_copy()
   ws2812_pos += len;
   return;
 }
-  
+
 void ws2812_handleInterrupt(void *arg)
 {
   portBASE_TYPE taskAwoken = 0;
@@ -104,10 +107,12 @@ void ws2812_handleInterrupt(void *arg)
 
   if (RMT.int_st.ch0_tx_thr_event) {
     ws2812_copy();
-    if (ws2812_pos >= ws2812_len)
-      xSemaphoreGiveFromISR(ws2812_sem, &taskAwoken);
     RMT.int_clr.ch0_tx_thr_event = 1;
-  }  
+  }
+  else if (RMT.int_st.ch0_tx_end) {
+    xSemaphoreGiveFromISR(ws2812_sem, &taskAwoken);
+    RMT.int_clr.ch0_tx_end = 1;
+  }
 
   return;
 }
@@ -127,6 +132,7 @@ void ws2812_init(int gpioNum)
   intr_matrix_set(0, ETS_RMT_INTR_SOURCE, ETS_RMT_CTRL_INUM);
   ESP_RMT_CTRL_INTRL(ws2812_handleInterrupt, NULL);
   RMT.int_ena.ch0_tx_thr_event = 1;
+  RMT.int_ena.ch0_tx_end = 1;
 
   ws2812_sem = xSemaphoreCreateBinary();
 
@@ -135,8 +141,8 @@ void ws2812_init(int gpioNum)
   ws2812_bits[0].duration0 = ws2812_bits[0].duration1 = PULSE;
   ws2812_bits[1].level0 = 1;
   ws2812_bits[1].level1 = 0;
-  ws2812_bits[1].duration0 = ws2812_bits[2].duration1 = 2 * PULSE;
-  
+  ws2812_bits[1].duration0 = ws2812_bits[1].duration1 = 2 * PULSE;
+
   ESP_RMT_CTRL_ENABLE();
 
   return;
@@ -145,11 +151,11 @@ void ws2812_init(int gpioNum)
 void ws2812_setColors(unsigned int length, rgbVal *array)
 {
   unsigned int i;
-  
+
 
   ws2812_len = (length * 3) * sizeof(uint8_t);
   ws2812_buffer = malloc(ws2812_len);
-  
+
   for (i = 0; i < length; i++) {
     ws2812_buffer[0 + i * 3] = array[i].g;
     ws2812_buffer[1 + i * 3] = array[i].r;
@@ -163,12 +169,12 @@ void ws2812_setColors(unsigned int length, rgbVal *array)
 
   if (ws2812_pos < ws2812_len)
     ws2812_copy();
-  
+
   RMT.conf_ch[RMTCHANNEL].conf1.mem_rd_rst = 1;
   RMT.conf_ch[RMTCHANNEL].conf1.tx_start = 1;
 
   xSemaphoreTake(ws2812_sem, portMAX_DELAY);
   free(ws2812_buffer);
-  
+
   return;
 }
