@@ -5,9 +5,6 @@
  * signals sent to the WS2812 LEDs.
  *
  * This code is placed in the public domain.
- *
- * For timing information check:
- * https://cpldcpu.wordpress.com/2014/01/14/light_ws2812-library-v2-0-part-i-understanding-the-ws2812/
  */
 
 #include "ws2812.h"
@@ -47,7 +44,7 @@ typedef union {
 
 static uint8_t *ws2812_buffer = NULL;
 static unsigned int ws2812_pos, ws2812_len, ws2812_half;
-static xSemaphoreHandle ws2812_sem;
+static xSemaphoreHandle ws2812_sem = NULL;
 static rmtPulsePair ws2812_bits[2];
 
 void ws2812_initRMTChannel(int rmtChannel)
@@ -109,11 +106,11 @@ void ws2812_handleInterrupt(void *arg)
     ws2812_copy();
     RMT.int_clr.ch0_tx_thr_event = 1;
   }
-  else if (RMT.int_st.ch0_tx_end) {
+  else if (RMT.int_st.ch0_tx_end && ws2812_sem) {
     xSemaphoreGiveFromISR(ws2812_sem, &taskAwoken);
     RMT.int_clr.ch0_tx_end = 1;
   }
-
+  
   return;
 }
 
@@ -133,8 +130,6 @@ void ws2812_init(int gpioNum)
   ESP_RMT_CTRL_INTRL(ws2812_handleInterrupt, NULL);
   RMT.int_ena.ch0_tx_thr_event = 1;
   RMT.int_ena.ch0_tx_end = 1;
-
-  ws2812_sem = xSemaphoreCreateBinary();
 
   ws2812_bits[0].level0 = 1;
   ws2812_bits[0].level1 = 0;
@@ -170,10 +165,15 @@ void ws2812_setColors(unsigned int length, rgbVal *array)
   if (ws2812_pos < ws2812_len)
     ws2812_copy();
 
+  ws2812_sem = xSemaphoreCreateBinary();
+  
   RMT.conf_ch[RMTCHANNEL].conf1.mem_rd_rst = 1;
   RMT.conf_ch[RMTCHANNEL].conf1.tx_start = 1;
 
   xSemaphoreTake(ws2812_sem, portMAX_DELAY);
+  vSemaphoreDelete(ws2812_sem);
+  ws2812_sem = NULL;
+  
   free(ws2812_buffer);
 
   return;

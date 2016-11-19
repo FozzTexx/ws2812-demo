@@ -33,7 +33,7 @@ void rainbow(void *pvParameters)
 
 
   pixels = malloc(sizeof(rgbVal) * pixel_count);
-  
+
   while (1) {
     color = color2;
     step = step2;
@@ -81,7 +81,7 @@ void rainbow(void *pvParameters)
     }
 
     ws2812_setColors(pixel_count, pixels);
-    
+
     delay_ms(delay);
   }
 }
