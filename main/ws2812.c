@@ -4,7 +4,7 @@
  * Uses the RMT peripheral on the ESP32 for very accurate timing of
  * signals sent to the WS2812 LEDs.
  *
- * This code is placed in the public domain.
+ * This code is placed in the public domain (or CC0 licensed, at your option).
  */
 
 #include "ws2812.h"

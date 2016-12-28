@@ -3,7 +3,7 @@
  *
  * Demo of driving WS2812 RGB LEDs using the RMT peripheral.
  *
- * This code is placed in the public domain.
+ * This code is placed in the public domain (or CC0 licensed, at your option).
  */
 
 #include <freertos/FreeRTOS.h>

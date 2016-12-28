@@ -3,7 +3,7 @@
  *
  * This is a driver for the WS2812 RGB LEDs using the RMT peripheral on the ESP32.
  *
- * This code is placed in the public domain.
+ * This code is placed in the public domain (or CC0 licensed, at your option).
  */
 
 #ifndef WS2812_DRIVER_H
