@@ -83,14 +83,14 @@ void ws2812_copy()
     if (i + ws2812_pos < ws2812_len) {
       bit = ws2812_buffer[i + ws2812_pos];
       for (j = 0; j < 8; j++, bit <<= 1) {
-	RMTMEM.chan[RMTCHANNEL].data[j + i * 8 + offset].val =
+	RMTMEM.chan[RMTCHANNEL].data32[j + i * 8 + offset].val =
 	  ws2812_bits[(bit >> 7) & 0x01].val;
       }
       if (i + ws2812_pos == ws2812_len - 1)
-	RMTMEM.chan[RMTCHANNEL].data[7 + i * 8 + offset].duration1 += RESET / DURATION;
+	RMTMEM.chan[RMTCHANNEL].data32[7 + i * 8 + offset].duration1 += RESET / DURATION;
     }
     else
-      RMTMEM.chan[RMTCHANNEL].data[i * 8 + offset].val = 0;
+      RMTMEM.chan[RMTCHANNEL].data32[i * 8 + offset].val = 0;
   }
 
   ws2812_pos += len;
@@ -138,7 +138,7 @@ void ws2812_init(int gpioNum)
   ws2812_bits[1].level1 = 0;
   ws2812_bits[1].duration0 = ws2812_bits[1].duration1 = 2 * PULSE;
 
-  ESP_RMT_CTRL_ENABLE();
+  ESP_INTR_ENABLE(ETS_RMT_CTRL_INUM);
 
   return;
 }
