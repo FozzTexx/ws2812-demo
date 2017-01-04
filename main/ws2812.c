@@ -75,23 +75,28 @@ void ws2812_copy()
   offset = ws2812_half * MAX_PULSES;
   ws2812_half = !ws2812_half;
 
-  len = (ws2812_len + 1) - ws2812_pos;
+  len = ws2812_len - ws2812_pos;
   if (len > (MAX_PULSES / 8))
     len = (MAX_PULSES / 8);
 
-  for (i = 0; i < len; i++) {
-    if (i + ws2812_pos < ws2812_len) {
-      bit = ws2812_buffer[i + ws2812_pos];
-      for (j = 0; j < 8; j++, bit <<= 1) {
-	RMTMEM.chan[RMTCHANNEL].data32[j + i * 8 + offset].val =
-	  ws2812_bits[(bit >> 7) & 0x01].val;
-      }
-      if (i + ws2812_pos == ws2812_len - 1)
-	RMTMEM.chan[RMTCHANNEL].data32[7 + i * 8 + offset].duration1 += RESET / DURATION;
-    }
-    else
-      RMTMEM.chan[RMTCHANNEL].data32[i * 8 + offset].val = 0;
+  if (!len) {
+    for (i = 0; i < MAX_PULSES; i++)
+      RMTMEM.chan[RMTCHANNEL].data32[i + offset].val = 0;
+    return;
   }
+
+  for (i = 0; i < len; i++) {
+    bit = ws2812_buffer[i + ws2812_pos];
+    for (j = 0; j < 8; j++, bit <<= 1) {
+      RMTMEM.chan[RMTCHANNEL].data32[j + i * 8 + offset].val =
+	ws2812_bits[(bit >> 7) & 0x01].val;
+    }
+    if (i + ws2812_pos == ws2812_len - 1)
+      RMTMEM.chan[RMTCHANNEL].data32[7 + i * 8 + offset].duration1 += RESET / DURATION;
+  }
+
+  for (i *= 8; i < MAX_PULSES; i++)
+    RMTMEM.chan[RMTCHANNEL].data32[i + offset].val = 0;
 
   ws2812_pos += len;
   return;
@@ -110,7 +115,7 @@ void ws2812_handleInterrupt(void *arg)
     xSemaphoreGiveFromISR(ws2812_sem, &taskAwoken);
     RMT.int_clr.ch0_tx_end = 1;
   }
-  
+
   return;
 }
 
@@ -166,14 +171,14 @@ void ws2812_setColors(unsigned int length, rgbVal *array)
     ws2812_copy();
 
   ws2812_sem = xSemaphoreCreateBinary();
-  
+
   RMT.conf_ch[RMTCHANNEL].conf1.mem_rd_rst = 1;
   RMT.conf_ch[RMTCHANNEL].conf1.tx_start = 1;
 
   xSemaphoreTake(ws2812_sem, portMAX_DELAY);
   vSemaphoreDelete(ws2812_sem);
   ws2812_sem = NULL;
-  
+
   free(ws2812_buffer);
 
   return;
