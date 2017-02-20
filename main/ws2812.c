@@ -22,12 +22,16 @@
 #define ETS_RMT_CTRL_INUM	18
 #define ESP_RMT_CTRL_DISABLE	ESP_RMT_CTRL_DIABLE /* Typo in esp_intr.h */
 
-#define WS2812_CYCLE	225 /* nanoseconds */
-#define RESET		50000 /* nanoseconds */
+#define DIVIDER		4 /* Above 4, timings start to deviate*/
 #define DURATION	12.5 /* minimum time of a single RMT duration
 				in nanoseconds based on clock */
-#define DIVIDER		1 /* Any other values cause flickering */
-#define PULSE		((WS2812_CYCLE * 2) / (DURATION * DIVIDER))
+
+#define PULSE_T0H	(  350 / (DURATION * DIVIDER));
+#define PULSE_T1H	(  900 / (DURATION * DIVIDER));
+#define PULSE_T0L	(  900 / (DURATION * DIVIDER));
+#define PULSE_T1L	(  350 / (DURATION * DIVIDER));
+#define PULSE_TRS	(50000 / (DURATION * DIVIDER));
+
 #define MAX_PULSES	32
 
 #define RMTCHANNEL	0
@@ -45,6 +49,7 @@ typedef union {
 static uint8_t *ws2812_buffer = NULL;
 static unsigned int ws2812_pos, ws2812_len, ws2812_half;
 static xSemaphoreHandle ws2812_sem = NULL;
+static intr_handle_t rmt_intr_handle = NULL;
 static rmtPulsePair ws2812_bits[2];
 
 void ws2812_initRMTChannel(int rmtChannel)
@@ -92,7 +97,7 @@ void ws2812_copy()
 	ws2812_bits[(bit >> 7) & 0x01].val;
     }
     if (i + ws2812_pos == ws2812_len - 1)
-      RMTMEM.chan[RMTCHANNEL].data32[7 + i * 8 + offset].duration1 += RESET / DURATION;
+      RMTMEM.chan[RMTCHANNEL].data32[7 + i * 8 + offset].duration1 = PULSE_TRS;
   }
 
   for (i *= 8; i < MAX_PULSES; i++)
@@ -131,19 +136,19 @@ void ws2812_init(int gpioNum)
   ws2812_initRMTChannel(RMTCHANNEL);
 
   RMT.tx_lim_ch[RMTCHANNEL].limit = MAX_PULSES;
-  intr_matrix_set(0, ETS_RMT_INTR_SOURCE, ETS_RMT_CTRL_INUM);
-  ESP_RMT_CTRL_INTRL(ws2812_handleInterrupt, NULL);
   RMT.int_ena.ch0_tx_thr_event = 1;
   RMT.int_ena.ch0_tx_end = 1;
 
   ws2812_bits[0].level0 = 1;
   ws2812_bits[0].level1 = 0;
-  ws2812_bits[0].duration0 = ws2812_bits[0].duration1 = PULSE;
+  ws2812_bits[0].duration0 = PULSE_T0H;
+  ws2812_bits[0].duration1 = PULSE_T0L;
   ws2812_bits[1].level0 = 1;
   ws2812_bits[1].level1 = 0;
-  ws2812_bits[1].duration0 = ws2812_bits[1].duration1 = 2 * PULSE;
+  ws2812_bits[1].duration0 = PULSE_T1H;
+  ws2812_bits[1].duration1 = PULSE_T1L;
 
-  ESP_INTR_ENABLE(ETS_RMT_CTRL_INUM);
+  esp_intr_alloc(ETS_RMT_INTR_SOURCE, 0, ws2812_handleInterrupt, NULL, &rmt_intr_handle);
 
   return;
 }
