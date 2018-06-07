@@ -18,7 +18,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "driver/rmt.h"
+#include <driver/rmt.h>
 
 #define ETS_RMT_CTRL_INUM	18
 #define ESP_RMT_CTRL_DISABLE	ESP_RMT_CTRL_DIABLE /* Typo in esp_intr.h */
