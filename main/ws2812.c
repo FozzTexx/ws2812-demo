@@ -18,6 +18,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "driver/rmt.h"
 
 #define ETS_RMT_CTRL_INUM	18
 #define ESP_RMT_CTRL_DISABLE	ESP_RMT_CTRL_DIABLE /* Typo in esp_intr.h */
@@ -129,9 +130,7 @@ void ws2812_init(int gpioNum)
   DPORT_SET_PERI_REG_MASK(DPORT_PERIP_CLK_EN_REG, DPORT_RMT_CLK_EN);
   DPORT_CLEAR_PERI_REG_MASK(DPORT_PERIP_RST_EN_REG, DPORT_RMT_RST);
 
-  PIN_FUNC_SELECT(GPIO_PIN_MUX_REG[gpioNum], 2);
-  gpio_matrix_out(gpioNum, RMT_SIG_OUT0_IDX + RMTCHANNEL, 0, 0);
-  gpio_set_direction(gpioNum, GPIO_MODE_OUTPUT);
+  rmt_set_pin((rmt_channel_t)RMTCHANNEL, RMT_MODE_TX, (gpio_num_t)gpioNum);
 
   ws2812_initRMTChannel(RMTCHANNEL);
 
